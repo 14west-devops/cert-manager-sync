@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -115,21 +116,26 @@ func getSecrets() ([]corev1.Secret, error) {
 		},
 	)
 	l.Print("get secrets")
-	sc := k8sClient.CoreV1().Secrets(os.Getenv("SECRETS_NAMESPACE"))
-	lo := &metav1.ListOptions{}
-	sl, jerr := sc.List(context.Background(), *lo)
-	if jerr != nil {
-		l.Printf("list error=%v", jerr)
-		return slo, jerr
-	}
-	l.Printf("range secrets: %d", len(sl.Items))
-	for _, s := range sl.Items {
-		if len(s.Data["tls.crt"]) == 0 || len(s.Data["tls.key"]) == 0 {
-			continue
+	scs := os.Getenv("SECRETS_NAMESPACE")
+	scsa := strings.Split(scs, ",")
+	for i, ns := range scsa {
+		l.Printf("handing secret namespace %d", ns, i)
+		sc := k8sClient.CoreV1().Secrets(ns)
+		lo := &metav1.ListOptions{}
+		sl, jerr := sc.List(context.Background(), *lo)
+		if jerr != nil {
+			l.Printf("list error=%v", jerr)
+			return slo, jerr
 		}
-		if s.Annotations[operatorName+"/sync-enabled"] == "true" {
-			l.Printf("cert secret: %s", s.ObjectMeta.Name)
-			slo = append(slo, s)
+		l.Printf("range secrets: %d", len(sl.Items))
+		for _, s := range sl.Items {
+			if len(s.Data["tls.crt"]) == 0 || len(s.Data["tls.key"]) == 0 {
+				continue
+			}
+			if s.Annotations[operatorName+"/sync-enabled"] == "true" {
+				l.Printf("cert secret: %s", s.ObjectMeta.Name)
+				slo = append(slo, s)
+			}
 		}
 	}
 	return slo, err
@@ -234,7 +240,8 @@ func handleACMCert(s corev1.Secret) error {
 	}
 	s.ObjectMeta.Annotations[operatorName+"/acm-certificate-arn"] = certArn
 	l.Printf("certArn=%v", certArn)
-	sc := k8sClient.CoreV1().Secrets(os.Getenv("SECRETS_NAMESPACE"))
+	sc := k8sClient.CoreV1().Secrets(s.ObjectMeta.Namespace)
+	l.Printf("namespace=%v", s.ObjectMeta.Namespace)
 	uo := metav1.UpdateOptions{}
 	_, uerr := sc.Update(
 		context.Background(),
