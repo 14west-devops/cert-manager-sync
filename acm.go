@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 // CreateAWSSession will connect to AWS with the account's credentials from vault
@@ -25,6 +26,24 @@ func CreateAWSSession() (*session.Session, error) {
 	if err != nil {
 		l.Printf("%+v", err)
 	}
+
+	// Create a STS client of passed a role to assume
+	roleToAssumeArn := os.Getenv("AWS_STS_ROLE_NAME")
+	if len(strings.TrimSpace(roleToAssumeArn)) > 0 {
+		svc := sts.New(sess)
+		sessionName := os.Getenv("AWS_STS_SESSION_NAME")
+		arresult, err := svc.AssumeRole(&sts.AssumeRoleInput{
+			RoleArn:         &roleToAssumeArn,
+			RoleSessionName: &sessionName,
+		})
+
+		if err != nil {
+			l.Printf("%+v", err)
+		}
+
+		l.Println(arresult.AssumedRoleUser)
+	}
+
 	return sess, nil
 }
 
