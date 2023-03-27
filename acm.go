@@ -21,7 +21,8 @@ func CreateAWSSession() (*session.Session, error) {
 	)
 	l.Print("CreateAWSSession")
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION"))},
+		CredentialsChainVerboseErrors: aws.Bool(true),
+		Region:                        aws.String(os.Getenv("AWS_REGION"))},
 	)
 	if err != nil {
 		l.Printf("%+v", err)

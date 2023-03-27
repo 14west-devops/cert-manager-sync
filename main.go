@@ -95,13 +95,22 @@ func cacheChanged(s corev1.Secret) bool {
 		return true
 	}
 	l.Printf("cache length: %d", len(cache))
+	var in_cache bool = false
 	for _, v := range cache {
 		tc := secretToCert(s)
 		if v.SecretName == s.ObjectMeta.Name && string(v.Certificate) != string(tc.Certificate) {
 			l.Printf("cache changed: %s", s.ObjectMeta.Name)
 			return true
+		} else if v.SecretName == s.ObjectMeta.Name {
+			in_cache = true
 		}
 	}
+
+	//if this secret is ot in ache at all, return true to continue
+	if !in_cache {
+		return true
+	}
+
 	l.Print("cache not changed")
 	return false
 }
@@ -119,7 +128,7 @@ func getSecrets() ([]corev1.Secret, error) {
 	scs := os.Getenv("SECRETS_NAMESPACE")
 	scsa := strings.Split(scs, ",")
 	for i, ns := range scsa {
-		l.Printf("handing secret namespace %d", ns, i)
+		l.Printf("handing secret namespace %d, iteration: %d", ns, i)
 		sc := k8sClient.CoreV1().Secrets(ns)
 		lo := &metav1.ListOptions{}
 		sl, jerr := sc.List(context.Background(), *lo)
@@ -265,13 +274,13 @@ func handleACMCerts(ss []corev1.Secret) error {
 	)
 	l.Print("handleACMCerts")
 	for _, s := range ss {
+
 		err := handleACMCert(s)
 		if err != nil {
 			l.Printf("handleACMCert error=%v", err)
-			return err
+			c := secretToCert(s)
+			addToCache(c)
 		}
-		c := secretToCert(s)
-		addToCache(c)
 	}
 	return nil
 }
