@@ -50,10 +50,27 @@ func CreateAWSSession() (*session.Session, error) {
 
 // separateCerts ensures that certificates are configured appropriately
 func separateCerts(name string, ca, crt, key []byte) *Certificate {
+
+	l := log.WithFields(
+		log.Fields{
+			"action": "CreateAWSSession",
+		},
+	)
+
 	b := "-----BEGIN CERTIFICATE-----\n"
 	str := strings.Split(string(crt), b)
+
+	//print each certificate in the chain
+	for i, s := range str {
+		l.Printf("Certificate %d: %s\n", i, s)
+	}
+
 	nc := b + str[1]
-	ch := strings.Join(str[:len(str)-1], b)
+	l.Println("cert: ", nc)
+
+	//ch := strings.Join(str[:len(str)-1], b)
+	ch := b + strings.Join(str[2:], b)
+	l.Println("chain: ", ch)
 	cert := &Certificate{
 		SecretName:  name,
 		Chain:       []byte(ch),
